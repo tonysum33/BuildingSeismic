@@ -1,0 +1,5 @@
+{
+  "name": "台灣地震力計算 App",
+  "description": "依據台灣建築物耐震設計規範 (2022/2024) 計算地震設計力之專業工程工具。",
+  "requestFramePermissions": []
+}
