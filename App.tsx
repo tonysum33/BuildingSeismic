@@ -1,9 +1,74 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Label, Legend, ReferenceArea, ReferenceDot } from 'recharts';
 import { Settings, Printer, Building2, MapPin, FileText } from 'lucide-react';
 import { SEISMIC_DATA, getFa, getFv, getNearFaultSsM, getNearFaultS1D, getNearFaultSsD, getNearFaultS1M } from './seismicData';
 import { SiteClass, StructureType, CalculationResult, ChartPoint, SeismicZoneData } from './types';
 import { CalculationReport } from './CalculationReport';
+
+interface MarqueeTextInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value'> {
+  value: string;
+}
+
+const MarqueeTextInput: React.FC<MarqueeTextInputProps> = ({ value, className = '', onFocus, onBlur, onInput, style, ...props }) => {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [isFocused, setIsFocused] = useState(false);
+  const [isOverflowing, setIsOverflowing] = useState(false);
+
+  const updateOverflow = () => {
+    const input = inputRef.current;
+    if (!input) return;
+
+    requestAnimationFrame(() => {
+      setIsOverflowing(input.scrollWidth > input.clientWidth);
+    });
+  };
+
+  useEffect(() => {
+    updateOverflow();
+    window.addEventListener('resize', updateOverflow);
+
+    return () => window.removeEventListener('resize', updateOverflow);
+  }, [value]);
+
+  const showMarquee = Boolean(value) && (isOverflowing || value.length > 12) && !isFocused;
+
+  return (
+    <div className="relative">
+      <input
+        {...props}
+        ref={inputRef}
+        value={value}
+        onFocus={(event) => {
+          setIsFocused(true);
+          onFocus?.(event);
+        }}
+        onBlur={(event) => {
+          setIsFocused(false);
+          updateOverflow();
+          onBlur?.(event);
+        }}
+        onInput={(event) => {
+          updateOverflow();
+          onInput?.(event);
+        }}
+        style={{
+          ...style,
+          color: showMarquee ? 'transparent' : style?.color,
+          WebkitTextFillColor: showMarquee ? 'transparent' : undefined,
+        }}
+        className={`${className} ${showMarquee ? 'caret-[#1d1d1f]' : ''}`}
+      />
+      {showMarquee && (
+        <div className="pointer-events-none absolute inset-y-0 left-2 right-2 flex items-center overflow-hidden text-sm font-medium text-[#1d1d1f]">
+          <span className="marquee-input-track">
+            <span>{value}</span>
+            <span aria-hidden="true">{value}</span>
+          </span>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const App: React.FC = () => {
   // --- State ---
@@ -130,7 +195,7 @@ const App: React.FC = () => {
       fault: manualFault || undefined,
       faultDistance: manualFaultDistance !== '' ? manualFaultDistance : undefined
     } as SeismicZoneData;
-  }, [selectedCity, selectedDistrict, manualSsD, manualS1D, manualSsM, manualS1M, manualFault]);
+  }, [selectedCity, selectedDistrict, manualSsD, manualS1D, manualSsM, manualS1M, manualFault, manualFaultDistance]);
 
   // --- Logic ---
   const calculate = () => {
@@ -150,7 +215,7 @@ const App: React.FC = () => {
     // 2. 容許韌性 Ra
     // 臺北盆地除外，其餘地區 Ra = 1 + (R-1)/1.5
     // 臺北盆地 Ra = 1 + (R-1)/2.0
-    const divisor = (isManualInput ? isTaipeiBasin : selectedCity === '臺北市') ? 2.0 : 1.5;
+    const divisor = isTaipeiBasin ? 2.0 : 1.5;
     const Ra = 1 + (rValue - 1) / divisor;
 
     // 3. 地盤放大係數 (Fa, Fv)
@@ -170,12 +235,12 @@ const App: React.FC = () => {
     const T0M = Sm1 / Sms;
 
     // 6. 計算譜加速度 Sad, SaM
-    const getSaAtT = (t: number, ss: number, s1: number) => {
+    const getSaAtT = (t: number, ss: number, s1: number, useLongPeriodFloor = true) => {
       const curT0 = s1 / ss;
       if (t <= 0.2 * curT0) return ss * (0.4 + 3 * t / curT0);
       if (t <= curT0) return ss;
       if (t <= 2.5 * curT0) return s1 / t;
-      return 0.4 * ss;
+      return useLongPeriodFloor ? 0.4 * ss : s1 / t;
     };
 
     const Sad = getSaAtT(T, Sds, Sd1);
@@ -204,8 +269,8 @@ const App: React.FC = () => {
     
     // 9. 中小地震
     // 依規範 2.10.1，不考慮近斷層效應，逕以表 2-1 之值計算
-    const ssD_base = isManualInput ? baseSsD : currentZone.SsD;
-    const s1D_base = isManualInput ? baseS1D : currentZone.S1D;
+    const ssD_base = baseSsD;
+    const s1D_base = baseS1D;
     
     const Fa_D_base = getFa(ssD_base, siteClass);
     const Fv_D_base = getFv(s1D_base, siteClass);
@@ -216,7 +281,7 @@ const App: React.FC = () => {
     const Fu_base = getFu(T, T0_base, Ra);
     const ratioD_base = getModifiedRatio(Sad_base / Fu_base);
     
-    const vStarDivisor = (isManualInput ? isTaipeiBasin : selectedCity === '臺北市') ? 3.5 : 4.2;
+    const vStarDivisor = isTaipeiBasin ? 3.5 : 4.2;
     const V_Star = (usageFactor * Fu_base / (vStarDivisor * alphaY)) * ratioD_base;
 
     // 10. 計算各項地震力
@@ -226,7 +291,11 @@ const App: React.FC = () => {
 
     // 11. 檢核參數
     const Cd = 0.6 * 1.4 * alphaY * Ra;
-    const V_drift = (1.0 * Fu_base / 4.2) * ratioD_base;
+    const T_drift = dynamicPeriod !== '' ? dynamicPeriod : T;
+    const Sad_drift = getSaAtT(T_drift, Sds_base, Sd1_base, dynamicPeriod === '');
+    const Fu_drift = getFu(T_drift, T0_base, Ra);
+    const ratioD_drift = getModifiedRatio(Sad_drift / Fu_drift);
+    const V_drift = (1.0 * Fu_drift / 4.2) * ratioD_drift;
 
     setResult({
       T, Ta, T0, T0M, Ra, Fa: Fa_D, Fv: Fv_D, FaM: Fa_M, FvM: Fv_M,
@@ -308,7 +377,7 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 text-[12px]">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
           {/* Left Column: Inputs */}
@@ -321,7 +390,7 @@ const App: React.FC = () => {
               <div className="p-8 pt-6 space-y-6">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="relative group">
-                    <label className="absolute -top-2 left-3 px-1 bg-white text-[10px] font-bold text-gray-400 uppercase tracking-tighter z-10">縣市</label>
+                    <label className="absolute -top-2 left-3 px-1 bg-white text-sm font-bold text-gray-400 uppercase tracking-tighter z-10">縣市</label>
                     <select 
                       value={selectedCity}
                       onChange={(e) => {
@@ -329,7 +398,7 @@ const App: React.FC = () => {
                         const firstDist = SEISMIC_DATA.find(d => d.city === e.target.value)?.district;
                         if (firstDist) setSelectedDistrict(firstDist);
                       }}
-                      className="w-full rounded-xl bg-[#f5f5f7] text-[#1d1d1f] border-none focus:ring-2 focus:ring-[#0066cc] sm:text-sm p-4 font-semibold transition-all appearance-none cursor-pointer"
+                      className="w-full rounded-xl bg-[#f5f5f7] text-[#1d1d1f] border-none focus:ring-2 focus:ring-[#0066cc] text-sm p-4 font-semibold transition-all appearance-none cursor-pointer"
                     >
                       {Array.from(new Set(SEISMIC_DATA.map(d => d.city))).map(city => (
                         <option key={city} value={city}>{city}</option>
@@ -337,11 +406,11 @@ const App: React.FC = () => {
                     </select>
                   </div>
                   <div className="relative group">
-                    <label className="absolute -top-2 left-3 px-1 bg-white text-[10px] font-bold text-gray-400 uppercase tracking-tighter z-10">鄉鎮市區</label>
+                    <label className="absolute -top-2 left-3 px-1 bg-white text-sm font-bold text-gray-400 uppercase tracking-tighter z-10">鄉鎮市區</label>
                     <select 
                       value={selectedDistrict}
                       onChange={(e) => setSelectedDistrict(e.target.value)}
-                      className="w-full rounded-xl bg-[#f5f5f7] text-[#1d1d1f] border-none focus:ring-2 focus:ring-[#0066cc] sm:text-sm p-4 font-semibold transition-all appearance-none cursor-pointer"
+                      className="w-full rounded-xl bg-[#f5f5f7] text-[#1d1d1f] border-none focus:ring-2 focus:ring-[#0066cc] text-sm p-4 font-semibold transition-all appearance-none cursor-pointer"
                     >
                       {availableDistricts.map(dist => (
                         <option key={dist} value={dist}>{dist}</option>
@@ -352,7 +421,7 @@ const App: React.FC = () => {
 
                 <div className="pt-4 border-t border-gray-100">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-xs font-bold text-gray-800 uppercase tracking-widest">震區係數 (可手動修改)</h3>
+                    <h3 className="text-sm font-bold text-gray-800 uppercase tracking-widest">震區係數 (可手動修改)</h3>
                     <div className="flex flex-col items-end gap-1">
                       <div className="flex items-center gap-2">
                         <input 
@@ -360,9 +429,9 @@ const App: React.FC = () => {
                           id="basinToggle"
                           checked={isTaipeiBasin}
                           onChange={(e) => setIsTaipeiBasin(e.target.checked)}
-                          className="h-3 w-3 text-[#0066cc] focus:ring-[#0066cc] border-gray-300 rounded"
+                          className="h-3 w-3 text-sm text-[#0066cc] focus:ring-[#0066cc] border-gray-300 rounded"
                         />
-                        <label htmlFor="basinToggle" className="text-[10px] font-bold text-[#0066cc] cursor-pointer">
+                        <label htmlFor="basinToggle" className="text-sm font-bold text-[#0066cc] cursor-pointer">
                           臺北盆地
                         </label>
                       </div>
@@ -372,10 +441,10 @@ const App: React.FC = () => {
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1 flex items-center justify-between">
+                        <label className="block text-sm font-bold text-gray-400 uppercase tracking-widest mb-1 flex items-center justify-between">
                           <span>設計 S<sub>S</sub><sup>D</sup></span>
                           {autoSsD !== null && (
-                            <span className="text-[9px] text-[#ff3b30] lowercase font-bold tracking-tight">近斷層自動計算中</span>
+                            <span className="text-sm text-[#ff3b30] lowercase font-bold tracking-tight">近斷層自動計算中</span>
                           )}
                         </label>
                         <input 
@@ -387,10 +456,10 @@ const App: React.FC = () => {
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1 flex items-center justify-between">
+                        <label className="block text-sm font-bold text-gray-400 uppercase tracking-widest mb-1 flex items-center justify-between">
                           <span>設計 S<sub>1</sub><sup>D</sup></span>
                           {autoS1D !== null && (
-                            <span className="text-[9px] text-[#ff3b30] lowercase font-bold tracking-tight">近斷層自動計算中</span>
+                            <span className="text-sm text-[#ff3b30] lowercase font-bold tracking-tight">近斷層自動計算中</span>
                           )}
                         </label>
                         <input 
@@ -404,10 +473,10 @@ const App: React.FC = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1 flex items-center justify-between">
+                        <label className="block text-sm font-bold text-gray-400 uppercase tracking-widest mb-1 flex items-center justify-between">
                           <span>最大 S<sub>S</sub><sup>M</sup></span>
                           {autoSsM !== null && (
-                            <span className="text-[9px] text-[#ff3b30] lowercase font-bold tracking-tight">近斷層自動計算中</span>
+                            <span className="text-sm text-[#ff3b30] lowercase font-bold tracking-tight">近斷層自動計算中</span>
                           )}
                         </label>
                         <input 
@@ -419,10 +488,10 @@ const App: React.FC = () => {
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1 flex items-center justify-between">
+                        <label className="block text-sm font-bold text-gray-400 uppercase tracking-widest mb-1 flex items-center justify-between">
                           <span>最大 S<sub>1</sub><sup>M</sup></span>
                           {autoS1M !== null && (
-                            <span className="text-[9px] text-[#ff3b30] lowercase font-bold tracking-tight">近斷層自動計算中</span>
+                            <span className="text-sm text-[#ff3b30] lowercase font-bold tracking-tight">近斷層自動計算中</span>
                           )}
                         </label>
                         <input 
@@ -439,49 +508,49 @@ const App: React.FC = () => {
                       <>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">鄰近斷層 (選填)</label>
-                            <input 
+                            <label className="block text-sm font-bold text-gray-400 uppercase tracking-widest mb-1">鄰近斷層 (選填)</label>
+                            <MarqueeTextInput
                               type="text" 
                               value={manualFault}
                               onChange={(e) => setManualFault(e.target.value)}
                               placeholder="自動載入或手動輸入"
-                              className="w-full rounded-xl bg-[#f5f5f7] text-[#1d1d1f] border-none focus:ring-2 focus:ring-[#0066cc] text-xs p-2 font-medium transition-all"
+                              className="w-full rounded-xl bg-[#f5f5f7] text-[#1d1d1f] border-none focus:ring-2 focus:ring-[#0066cc] text-sm p-2 font-medium transition-all"
                             />
                           </div>
                           <div>
-                            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">斷層距離 (km)</label>
+                            <label className="block text-sm font-bold text-gray-400 uppercase tracking-widest mb-1">斷層距離 (km)</label>
                             <input 
                               type="number" 
                               step="0.1"
                               value={manualFaultDistance}
                               onChange={(e) => setManualFaultDistance(e.target.value === '' ? '' : Number(e.target.value))}
                               placeholder="R (km)"
-                              className="w-full rounded-xl bg-[#f5f5f7] text-[#1d1d1f] border-none focus:ring-2 focus:ring-[#0066cc] text-xs p-2 font-mono transition-all"
+                              className="w-full rounded-xl bg-[#f5f5f7] text-[#1d1d1f] border-none focus:ring-2 focus:ring-[#0066cc] text-sm p-2 font-mono transition-all"
                             />
                           </div>
                         </div>
 
                         <div className="bg-[#f5f5f7] p-4 rounded-xl border border-gray-100">
-                          <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">中小地震基準 (V*)</h4>
+                          <h4 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-2">中小地震基準 (V*)</h4>
                           <div className="grid grid-cols-2 gap-3">
                             <div>
-                              <label className="block text-[9px] font-bold text-gray-500 mb-1 uppercase">基準 S<sub>S</sub><sup>D</sup></label>
+                              <label className="block text-sm font-bold text-gray-500 mb-1 uppercase">基準 S<sub>S</sub><sup>D</sup></label>
                               <input 
                                 type="number" 
                                 step="0.01"
                                 value={baseSsD}
                                 onChange={(e) => setBaseSsD(Number(e.target.value))}
-                                className="w-full rounded-lg bg-white text-[#1d1d1f] border-none focus:ring-2 focus:ring-[#0066cc] text-[10px] p-2 font-mono"
+                                className="w-full rounded-lg bg-white text-[#1d1d1f] border-none focus:ring-2 focus:ring-[#0066cc] text-sm p-2 font-mono"
                               />
                             </div>
                             <div>
-                              <label className="block text-[9px] font-bold text-gray-500 mb-1 uppercase">基準 S<sub>1</sub><sup>D</sup></label>
+                              <label className="block text-sm font-bold text-gray-500 mb-1 uppercase">基準 S<sub>1</sub><sup>D</sup></label>
                               <input 
                                 type="number" 
                                 step="0.01"
                                 value={baseS1D}
                                 onChange={(e) => setBaseS1D(Number(e.target.value))}
-                                className="w-full rounded-lg bg-white text-[#1d1d1f] border-none focus:ring-2 focus:ring-[#0066cc] text-[10px] p-2 font-mono"
+                                className="w-full rounded-lg bg-white text-[#1d1d1f] border-none focus:ring-2 focus:ring-[#0066cc] text-sm p-2 font-mono"
                               />
                             </div>
                           </div>
@@ -492,11 +561,11 @@ const App: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">地盤種類</label>
+                  <label className="block text-sm font-bold text-gray-400 uppercase tracking-widest mb-2">地盤種類</label>
                   <select 
                     value={siteClass}
                     onChange={(e) => setSiteClass(e.target.value as SiteClass)}
-                    className="w-full rounded-xl bg-[#f5f5f7] text-[#1d1d1f] border-none focus:ring-2 focus:ring-[#0066cc] sm:text-sm p-3 font-medium transition-all"
+                    className="w-full rounded-xl bg-[#f5f5f7] text-[#1d1d1f] border-none focus:ring-2 focus:ring-[#0066cc] text-sm p-3 font-medium transition-all"
                   >
                     <option value={SiteClass.HARD}>第一類地盤 (堅硬)</option>
                     <option value={SiteClass.MEDIUM}>第二類地盤 (普通)</option>
@@ -513,11 +582,11 @@ const App: React.FC = () => {
               </div>
               <div className="p-8 pt-6 space-y-5">
                  <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">結構系統</label>
+                  <label className="block text-sm font-bold text-gray-400 uppercase tracking-widest mb-2">結構系統</label>
                   <select 
                     value={structureType}
                     onChange={(e) => setStructureType(e.target.value as StructureType)}
-                    className="w-full rounded-xl bg-[#f5f5f7] text-[#1d1d1f] border-none focus:ring-2 focus:ring-[#0066cc] sm:text-sm p-3 font-medium transition-all"
+                    className="w-full rounded-xl bg-[#f5f5f7] text-[#1d1d1f] border-none focus:ring-2 focus:ring-[#0066cc] text-sm p-3 font-medium transition-all"
                   >
                     <option value={StructureType.STEEL}>鋼構造</option>
                     <option value={StructureType.RC}>RC / SRC / EBF</option>
@@ -526,53 +595,53 @@ const App: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">建築物高度 (H) [m]</label>
+                  <label className="block text-sm font-bold text-gray-400 uppercase tracking-widest mb-2">建築物高度 (H) [m]</label>
                   <input type="number" value={height} onChange={(e) => setHeight(Number(e.target.value))}
-                    className="w-full rounded-xl bg-[#f5f5f7] text-[#1d1d1f] border-none focus:ring-2 focus:ring-[#0066cc] sm:text-sm p-3 font-medium transition-all" />
+                    className="w-full rounded-xl bg-[#f5f5f7] text-[#1d1d1f] border-none focus:ring-2 focus:ring-[#0066cc] text-sm p-3 font-medium transition-all" />
                   {result && (
                     <div className="mt-2 flex items-center gap-2">
-                       <span className="text-[10px] font-bold text-white bg-blue-500 px-2 py-0.5 rounded-md">經驗週期</span>
+                       <span className="text-sm font-bold text-white bg-blue-500 px-2 py-0.5 rounded-md">經驗週期</span>
                        <span className="text-sm font-bold text-[#1d1d1f]">T<sub>a</sub> = {result.Ta.toFixed(3)} s</span>
                     </div>
                   )}
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">動力分析基本振動週期 (T_dyn) [秒]</label>
+                  <label className="block text-sm font-bold text-gray-400 uppercase tracking-widest mb-2">動力分析基本振動週期 (T_dyn) [秒]</label>
                   <input 
                     type="number" 
                     step="0.01"
                     value={dynamicPeriod} 
                     onChange={(e) => setDynamicPeriod(e.target.value === '' ? '' : Number(e.target.value))}
                     placeholder={`經驗值 Ta = ${ ((structureType === StructureType.STEEL ? 0.085 : structureType === StructureType.RC ? 0.070 : 0.050) * Math.pow(height, 0.75)).toFixed(3) }`}
-                    className="w-full rounded-xl bg-[#f5f5f7] text-[#1d1d1f] border-none focus:ring-2 focus:ring-[#0066cc] sm:text-sm p-3 font-medium transition-all" 
+                    className="w-full rounded-xl bg-[#f5f5f7] text-[#1d1d1f] border-none focus:ring-2 focus:ring-[#0066cc] text-sm p-3 font-medium transition-all" 
                   />
                   {result && (
                     <div className="mt-2 flex items-center gap-2">
-                       <span className="text-[10px] font-bold text-white bg-indigo-500 px-2 py-0.5 rounded-md">設計基本振動週期</span>
+                       <span className="text-sm font-bold text-white bg-indigo-500 px-2 py-0.5 rounded-md">設計基本振動週期</span>
                        <span className="text-sm font-bold text-[#1d1d1f]">T = {result.T.toFixed(3)} s</span>
                     </div>
                   )}
-                  <p className="mt-2 text-[10px] text-gray-400 font-medium tracking-tight">※ 若輸入則取 min(T_dyn, 1.4*Ta) 作為設計週期</p>
+                  <p className="mt-2 text-sm text-gray-400 font-medium tracking-tight">※ 若輸入則取 min(T_dyn, 1.4*Ta) 作為設計週期</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">用途係數 (I)</label>
+                    <label className="block text-sm font-bold text-gray-400 uppercase tracking-widest mb-2">用途係數 (I)</label>
                     <input type="number" step="0.25" value={usageFactor} onChange={(e) => setUsageFactor(Number(e.target.value))}
-                      className="w-full rounded-xl bg-[#f5f5f7] text-[#1d1d1f] border-none focus:ring-2 focus:ring-[#0066cc] sm:text-sm p-3 font-medium transition-all" />
+                      className="w-full rounded-xl bg-[#f5f5f7] text-[#1d1d1f] border-none focus:ring-2 focus:ring-[#0066cc] text-sm p-3 font-medium transition-all" />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">起始降服放大係數 (αy)</label>
+                    <label className="block text-sm font-bold text-gray-400 uppercase tracking-widest mb-2">起始降服放大係數 (αy)</label>
                     <input type="number" step="0.1" value={alphaY} onChange={(e) => setAlphaY(Number(e.target.value))}
-                      className="w-full rounded-xl bg-[#f5f5f7] text-[#1d1d1f] border-none focus:ring-2 focus:ring-[#0066cc] sm:text-sm p-3 font-medium transition-all" />
+                      className="w-full rounded-xl bg-[#f5f5f7] text-[#1d1d1f] border-none focus:ring-2 focus:ring-[#0066cc] text-sm p-3 font-medium transition-all" />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">韌性容量 (R)</label>
+                  <label className="block text-sm font-bold text-gray-400 uppercase tracking-widest mb-2">韌性容量 (R)</label>
                   <input type="number" step="0.1" value={rValue} onChange={(e) => setRValue(Number(e.target.value))}
-                    className="w-full rounded-xl bg-[#f5f5f7] text-[#1d1d1f] border-none focus:ring-2 focus:ring-[#0066cc] sm:text-sm p-3 font-medium transition-all" />
+                    className="w-full rounded-xl bg-[#f5f5f7] text-[#1d1d1f] border-none focus:ring-2 focus:ring-[#0066cc] text-sm p-3 font-medium transition-all" />
                 </div>
               </div>
             </section>
@@ -585,21 +654,21 @@ const App: React.FC = () => {
                 {/* Three Components Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className={`p-8 rounded-3xl border transition-all ${result.V_Design === result.V_D ? 'bg-[#f5f5f7] border-gray-200' : 'bg-white border-gray-100'}`}>
-                    <div className="text-gray-400 text-[10px] font-bold uppercase tracking-widest mb-4">設計地震</div>
-                    <div className={`text-4xl font-bold tracking-tight mb-4 ${result.V_Design === result.V_D ? 'text-[#0066cc]' : 'text-[#1d1d1f]'}`}>{result.V_D.toFixed(2)}</div>
-                    <div className="text-[10px] text-gray-400 font-medium">避免中小地震產生降服</div>
+                    <div className="text-gray-400 text-sm font-bold uppercase tracking-widest mb-4">設計地震</div>
+                    <div className={`text-sm font-bold tracking-tight mb-4 ${result.V_Design === result.V_D ? 'text-[#0066cc]' : 'text-[#1d1d1f]'}`}>{result.V_D.toFixed(3)}</div>
+                    <div className="text-sm text-gray-400 font-medium">避免中小地震產生降服</div>
                   </div>
                   
                   <div className={`p-8 rounded-3xl border transition-all ${result.V_Design === result.V_Star && result.V_Design !== result.V_D ? 'bg-[#f5f5f7] border-gray-200' : 'bg-white border-gray-100'}`}>
-                    <div className="text-gray-400 text-[10px] font-bold uppercase tracking-widest mb-4">中小地震</div>
-                    <div className={`text-4xl font-bold tracking-tight mb-4 ${result.V_Design === result.V_Star && result.V_Design !== result.V_D ? 'text-[#0066cc]' : 'text-[#1d1d1f]'}`}>{result.V_Star.toFixed(2)}</div>
-                    <div className="text-[10px] text-gray-400 font-medium">避免中小地震產生降服</div>
+                    <div className="text-gray-400 text-sm font-bold uppercase tracking-widest mb-4">中小地震</div>
+                    <div className={`text-sm font-bold tracking-tight mb-4 ${result.V_Design === result.V_Star && result.V_Design !== result.V_D ? 'text-[#0066cc]' : 'text-[#1d1d1f]'}`}>{result.V_Star.toFixed(3)}</div>
+                    <div className="text-sm text-gray-400 font-medium">避免中小地震產生降服</div>
                   </div>
 
                   <div className={`p-8 rounded-3xl border transition-all ${result.V_Design === result.V_M && result.V_Design !== result.V_D && result.V_Design !== result.V_Star ? 'bg-[#f5f5f7] border-gray-200' : 'bg-white border-gray-100'}`}>
-                    <div className="text-gray-400 text-[10px] font-bold uppercase tracking-widest mb-4">最大地震</div>
-                    <div className={`text-4xl font-bold tracking-tight mb-4 ${result.V_Design === result.V_M && result.V_Design !== result.V_D && result.V_Design !== result.V_Star ? 'text-[#0066cc]' : 'text-[#1d1d1f]'}`}>{result.V_M.toFixed(2)}</div>
-                    <div className="text-[10px] text-gray-400 font-medium">避免最大地震產生崩塌</div>
+                    <div className="text-gray-400 text-sm font-bold uppercase tracking-widest mb-4">最大地震</div>
+                    <div className={`text-sm font-bold tracking-tight mb-4 ${result.V_Design === result.V_M && result.V_Design !== result.V_D && result.V_Design !== result.V_Star ? 'text-[#0066cc]' : 'text-[#1d1d1f]'}`}>{result.V_M.toFixed(3)}</div>
+                    <div className="text-sm text-gray-400 font-medium">避免最大地震產生崩塌</div>
                   </div>
                 </div>
               </div>
@@ -607,8 +676,8 @@ const App: React.FC = () => {
 
             <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-10">
               <div className="flex items-center justify-between mb-10">
-                <h3 className="font-semibold text-[#1d1d1f] text-xl tracking-tight">地震反應譜比較圖</h3>
-                <div className="flex gap-6 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                <h3 className="font-semibold text-[#1d1d1f] text-[16px] tracking-tight">地震反應譜比較圖</h3>
+                <div className="flex gap-6 text-[16px] font-bold uppercase tracking-widest text-gray-400">
                   <div className="flex items-center gap-2"><div className="w-2 h-2 bg-[#ff3b30] rounded-full"></div> 最大地震</div>
                   <div className="flex items-center gap-2"><div className="w-2 h-2 bg-[#0066cc] rounded-full"></div> 設計地震</div>
                   <div className="flex items-center gap-2"><div className="w-2 h-2 bg-[#34c759] rounded-full"></div> 中小地震</div>

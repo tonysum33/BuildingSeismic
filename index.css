@@ -43,6 +43,26 @@
   }
 }
 
+.marquee-input-track {
+  display: inline-flex;
+  min-width: max-content;
+  gap: 2rem;
+  white-space: nowrap;
+  animation: marquee-input-scroll 8s linear infinite;
+}
+
+@keyframes marquee-input-scroll {
+  0%,
+  15% {
+    transform: translateX(0);
+  }
+
+  85%,
+  100% {
+    transform: translateX(calc(-50% - 1rem));
+  }
+}
+
 @media print {
   body {
     background-color: white !important;

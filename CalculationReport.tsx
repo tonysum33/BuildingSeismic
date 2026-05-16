@@ -163,7 +163,7 @@ export const CalculationReport: React.FC<CalculationReportProps> = ({ inputs, zo
               <div className="flex justify-between items-center"><span className="text-gray-500">基準修正譜加速度比 (S<sub>aD</sub>/F<sub>u</sub>)<sub>m,base</sub></span> <span className="font-bold text-[#34c759] bg-white px-3 py-1 rounded-full shadow-sm">{result.ratioD_base.toFixed(3)}</span></div>
               <div className="p-4 bg-white rounded-2xl border border-gray-50 font-mono text-[13px] leading-relaxed">
                 V* = (I * F<sub>u</sub> / Kα<sub>y</sub>) * (S<sub>aD</sub> / F<sub>u</sub>)<sub>m</sub> * W <br/>
-                = ({inputs.usageFactor.toFixed(3)} * {result.Fu_base.toFixed(3)} / ({inputs.isTaipeiBasin || zone.city === '臺北市' ? '3.5' : '4.2'} * {inputs.alphaY.toFixed(3)})) * {result.ratioD_base.toFixed(3)} * W = <span className="font-bold text-[#34c759]">{result.V_Star.toFixed(3)} W</span>
+                = ({inputs.usageFactor.toFixed(3)} * {result.Fu_base.toFixed(3)} / ({inputs.isTaipeiBasin ? '3.5' : '4.2'} * {inputs.alphaY.toFixed(3)})) * {result.ratioD_base.toFixed(3)} * W = <span className="font-bold text-[#34c759]">{result.V_Star.toFixed(3)} W</span>
               </div>
             </div>
           </section>
