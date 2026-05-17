@@ -9,6 +9,43 @@ interface MarqueeTextInputProps extends Omit<React.InputHTMLAttributes<HTMLInput
   value: string;
 }
 
+const TAIPEI_BASIN_ZONES = {
+  '1': { label: '臺北一區', sds: 0.6, sms: 0.8, t0: 1.6 },
+  '2': { label: '臺北二區', sds: 0.6, sms: 0.8, t0: 1.3 },
+  '3': { label: '臺北三區', sds: 0.6, sms: 0.8, t0: 1.05 },
+} as const;
+
+type TaipeiBasinZone = keyof typeof TAIPEI_BASIN_ZONES;
+
+const TAIPEI_BASIN_DISTRICT_HINTS: Record<string, { zone?: TaipeiBasinZone; note: string }> = {
+  '新北市:三重區': { zone: '1', note: '表 2-6(a)：全區所有里屬臺北一區。' },
+  '新北市:蘆洲區': { zone: '1', note: '表 2-6(a)：全區所有里屬臺北一區。' },
+  '新北市:五股區': { zone: '1', note: '表 2-6(a)：盆地範圍內之里屬臺北一區；非盆地里應依一般震區計算。' },
+  '新北市:泰山區': { zone: '1', note: '表 2-6(a)：盆地範圍內之里屬臺北一區；非盆地里應依一般震區計算。' },
+  '新北市:永和區': { zone: '2', note: '表 2-6(a)：全區所有里屬臺北二區。' },
+  '新北市:土城區': { zone: '3', note: '表 2-6(a)：盆地範圍內之里屬臺北三區；清化里、祖田里等非盆地里應依一般震區計算。' },
+  '新北市:八里區': { zone: '2', note: '表 2-6(a)：盆地範圍內之里屬臺北二區；長坑里依一般震區計算。' },
+  '新北市:汐止區': { zone: '3', note: '表 2-6(a)：盆地範圍內之里屬臺北三區；部分里依一般震區計算。' },
+  '新北市:淡水區': { zone: '2', note: '表 2-6(a)：盆地範圍內之里屬臺北二區；部分里依一般震區計算。' },
+  '新北市:新莊區': { note: '表 2-6(a)：依里別分為臺北一區與臺北二區，請依工址里別選擇。' },
+  '新北市:樹林區': { note: '表 2-6(a)：依里別分為臺北二區與臺北三區，請依工址里別選擇。' },
+  '新北市:板橋區': { note: '表 2-6(a)：依里別分為臺北一區、臺北二區與臺北三區，請依工址里別選擇。' },
+  '新北市:中和區': { note: '表 2-6(a)：多數盆地里屬臺北二區，灰磘里等部分里屬臺北三區，請依工址里別選擇。' },
+  '新北市:新店區': { note: '表 2-6(a)：永安里、新和里、永平里屬臺北二區，其餘列示盆地里屬臺北三區。' },
+  '臺北市:大同區': { zone: '2', note: '表 2-6(a)：全區所有里屬臺北二區。' },
+  '臺北市:萬華區': { zone: '2', note: '表 2-6(a)：全區所有里屬臺北二區。' },
+  '臺北市:文山區': { zone: '3', note: '表 2-6(a)：盆地範圍內之里屬臺北三區；指南里、萬芳里等依一般震區計算。' },
+  '臺北市:南港區': { zone: '3', note: '表 2-6(a)：盆地範圍內之里屬臺北三區；舊莊里、九如里依一般震區計算。' },
+  '臺北市:士林區': { note: '表 2-6(a)：依里別分為臺北一區與臺北二區，部分里依一般震區計算。' },
+  '臺北市:北投區': { note: '表 2-6(a)：依里別分為臺北一區與臺北二區，部分里依一般震區計算。' },
+  '臺北市:中山區': { note: '表 2-6(a)：多數里屬臺北一區，正得里、民安里、集英里、金泰里屬臺北二區。' },
+  '臺北市:松山區': { note: '表 2-6(a)：依里別分為臺北一區、臺北二區與臺北三區，請依工址里別選擇。' },
+  '臺北市:大安區': { note: '表 2-6(a)：依里別分為臺北一區、臺北二區與臺北三區，請依工址里別選擇。' },
+  '臺北市:中正區': { note: '表 2-6(a)：梅花里、幸市里、三愛里屬臺北一區，其餘列示盆地里屬臺北二區。' },
+  '臺北市:信義區': { note: '表 2-6(a)：西村里等 13 里屬臺北二區，其餘列示盆地里屬臺北三區。' },
+  '臺北市:內湖區': { note: '表 2-6(a)：西湖里、西康里、西安里屬臺北二區，其餘列示盆地里屬臺北三區。' },
+};
+
 const MarqueeTextInput: React.FC<MarqueeTextInputProps> = ({ value, className = '', onFocus, onBlur, onInput, style, ...props }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isFocused, setIsFocused] = useState(false);
@@ -84,6 +121,7 @@ const App: React.FC = () => {
   const [baseSsD, setBaseSsD] = useState<number>(0.80);
   const [baseS1D, setBaseS1D] = useState<number>(0.45);
   const [isTaipeiBasin, setIsTaipeiBasin] = useState<boolean>(false);
+  const [taipeiBasinZone, setTaipeiBasinZone] = useState<TaipeiBasinZone>('2');
   
   // Near-fault calculated SsM
   const autoSsM = useMemo(() => {
@@ -172,6 +210,8 @@ const App: React.FC = () => {
   const [rValue, setRValue] = useState<number>(4.0); // R
   const [height, setHeight] = useState<number>(17.5); 
   const [dynamicPeriod, setDynamicPeriod] = useState<number | ''>('');
+  const [verticalWeightRatio, setVerticalWeightRatio] = useState<number>(2);
+  const [activeResultTab, setActiveResultTab] = useState<'horizontal' | 'vertical'>('horizontal');
   const [siteClass, setSiteClass] = useState<SiteClass>(SiteClass.MEDIUM);
   const [structureType, setStructureType] = useState<StructureType>(StructureType.STEEL);
   
@@ -197,6 +237,18 @@ const App: React.FC = () => {
     } as SeismicZoneData;
   }, [selectedCity, selectedDistrict, manualSsD, manualS1D, manualSsM, manualS1M, manualFault, manualFaultDistance]);
 
+  const taipeiBasinHint = useMemo(() => {
+    return TAIPEI_BASIN_DISTRICT_HINTS[`${selectedCity}:${selectedDistrict}`];
+  }, [selectedCity, selectedDistrict]);
+
+  const selectedBasinZoneInfo = TAIPEI_BASIN_ZONES[taipeiBasinZone];
+
+  useEffect(() => {
+    if (isTaipeiBasin && taipeiBasinHint?.zone) {
+      setTaipeiBasinZone(taipeiBasinHint.zone);
+    }
+  }, [isTaipeiBasin, taipeiBasinHint]);
+
   // --- Logic ---
   const calculate = () => {
     if (!currentZone) return;
@@ -218,6 +270,8 @@ const App: React.FC = () => {
     const divisor = isTaipeiBasin ? 2.0 : 1.5;
     const Ra = 1 + (rValue - 1) / divisor;
 
+    const basinZone = isTaipeiBasin ? TAIPEI_BASIN_ZONES[taipeiBasinZone] : null;
+
     // 3. 地盤放大係數 (Fa, Fv)
     const Fa_D = getFa(currentZone.SsD, siteClass);
     const Fv_D = getFv(currentZone.S1D, siteClass);
@@ -225,16 +279,23 @@ const App: React.FC = () => {
     const Fv_M = getFv(currentZone.S1M, siteClass);
 
     // 4. 譜加速度參數
-    const Sds = currentZone.SsD * Fa_D;
-    const Sd1 = currentZone.S1D * Fv_D;
-    const Sms = currentZone.SsM * Fa_M;
-    const Sm1 = currentZone.S1M * Fv_M;
+    const Sds = basinZone ? basinZone.sds : currentZone.SsD * Fa_D;
+    const Sms = basinZone ? basinZone.sms : currentZone.SsM * Fa_M;
 
     // 5. 轉角週期 T0
-    const T0 = Sd1 / Sds;
-    const T0M = Sm1 / Sms;
+    const T0 = basinZone ? basinZone.t0 : (currentZone.S1D * Fv_D) / Sds;
+    const T0M = basinZone ? basinZone.t0 : (currentZone.S1M * Fv_M) / Sms;
+    const Sd1 = Sds * T0;
+    const Sm1 = Sms * T0M;
 
     // 6. 計算譜加速度 Sad, SaM
+    const getSaAtTByT0 = (t: number, s: number, t0: number, useLongPeriodFloor = true) => {
+      if (t <= 0.2 * t0) return s * (0.4 + 3 * t / t0);
+      if (t <= t0) return s;
+      if (t <= 2.5 * t0) return (s * t0) / t;
+      return useLongPeriodFloor ? 0.4 * s : (s * t0) / t;
+    };
+
     const getSaAtT = (t: number, ss: number, s1: number, useLongPeriodFloor = true) => {
       const curT0 = s1 / ss;
       if (t <= 0.2 * curT0) return ss * (0.4 + 3 * t / curT0);
@@ -243,8 +304,8 @@ const App: React.FC = () => {
       return useLongPeriodFloor ? 0.4 * ss : s1 / t;
     };
 
-    const Sad = getSaAtT(T, Sds, Sd1);
-    const SaM = getSaAtT(T, Sms, Sm1);
+    const Sad = getSaAtTByT0(T, Sds, T0);
+    const SaM = getSaAtTByT0(T, Sms, T0M);
 
     // 7. 計算地震力折減係數 Fu, FuM
     const getFu = (t: number, t0: number, r: number) => {
@@ -274,10 +335,10 @@ const App: React.FC = () => {
     
     const Fa_D_base = getFa(ssD_base, siteClass);
     const Fv_D_base = getFv(s1D_base, siteClass);
-    const Sds_base = ssD_base * Fa_D_base;
-    const Sd1_base = s1D_base * Fv_D_base;
-    const T0_base = Sd1_base / Sds_base;
-    const Sad_base = getSaAtT(T, Sds_base, Sd1_base);
+    const Sds_base = basinZone ? basinZone.sds : ssD_base * Fa_D_base;
+    const T0_base = basinZone ? basinZone.t0 : (s1D_base * Fv_D_base) / Sds_base;
+    const Sd1_base = Sds_base * T0_base;
+    const Sad_base = getSaAtTByT0(T, Sds_base, T0_base);
     const Fu_base = getFu(T, T0_base, Ra);
     const ratioD_base = getModifiedRatio(Sad_base / Fu_base);
     
@@ -292,10 +353,53 @@ const App: React.FC = () => {
     // 11. 檢核參數
     const Cd = 0.6 * 1.4 * alphaY * Ra;
     const T_drift = dynamicPeriod !== '' ? dynamicPeriod : T;
-    const Sad_drift = getSaAtT(T_drift, Sds_base, Sd1_base, dynamicPeriod === '');
+    const Sad_drift = getSaAtTByT0(T_drift, Sds_base, T0_base, dynamicPeriod === '');
     const Fu_drift = getFu(T_drift, T0_base, Ra);
     const ratioD_drift = getModifiedRatio(Sad_drift / Fu_drift);
     const V_drift = (1.0 * Fu_drift / 4.2) * ratioD_drift;
+
+    // 12. 垂直地震力：依 2.18、C2-10、C2-11a/b 計算
+    const isNearFaultSite = Boolean(currentZone.fault);
+    const verticalSpectrumFactor = isNearFaultSite ? 2 / 3 : 1 / 2;
+    const verticalRa = 1 + (3 - 1) / divisor;
+    const verticalTDesign = 0.2 * T0;
+    const verticalTBase = 0.2 * T0_base;
+    const verticalTM = 0.2 * T0M;
+    const getVerticalModifiedRatio = (ratio: number) => {
+      if (isNearFaultSite) {
+        if (ratio <= 0.2) return ratio;
+        if (ratio >= 0.53) return 0.70 * ratio;
+        return 0.52 * ratio + 0.096;
+      }
+
+      if (ratio <= 0.15) return ratio;
+      if (ratio >= 0.4) return 0.70 * ratio;
+      return 0.52 * ratio + 0.072;
+    };
+
+    const verticalSadV = verticalSpectrumFactor * getSaAtTByT0(verticalTDesign, Sds, T0);
+    const verticalSadVBase = verticalSpectrumFactor * getSaAtTByT0(verticalTBase, Sds_base, T0_base);
+    const verticalSaMV = verticalSpectrumFactor * getSaAtTByT0(verticalTM, Sms, T0M);
+    const verticalFuv = getFu(verticalTDesign, T0, verticalRa);
+    const verticalFuvBase = getFu(verticalTBase, T0_base, verticalRa);
+    const verticalFuvM = getFu(verticalTM, T0M, 3);
+    const verticalRawRatioD = verticalSadV / verticalFuv;
+    const verticalRawRatioBase = verticalSadVBase / verticalFuvBase;
+    const verticalRawRatioM = verticalSaMV / verticalFuvM;
+    const verticalRatioD = getVerticalModifiedRatio(verticalRawRatioD);
+    const verticalRatioBase = getVerticalModifiedRatio(verticalRawRatioBase);
+    const verticalRatioM = getVerticalModifiedRatio(verticalRawRatioM);
+    const verticalVD = (usageFactor / (1.4 * alphaY)) * verticalRatioD;
+    const verticalVStar = (usageFactor * verticalFuvBase / (vStarDivisor * alphaY)) * verticalRatioBase;
+    const verticalVM = (usageFactor / (1.4 * alphaY)) * verticalRatioM;
+    const verticalVDesign = Math.max(verticalVD, verticalVStar, verticalVM);
+    const verticalWallCoefficient = isNearFaultSite
+      ? (0.8 * Sms * usageFactor) / (3 * alphaY)
+      : (0.4 * Sms * usageFactor) / (2 * alphaY);
+    const verticalCombinedCoefficient = ((V_Design * verticalWeightRatio) + verticalVDesign) / (verticalWeightRatio + 1);
+    const verticalWallFormulaLabel = isNearFaultSite
+      ? '0.8SMS * I / (3αy)'
+      : '0.4SMS * I / (2αy)';
 
     setResult({
       T, Ta, T0, T0M, Ra, Fa: Fa_D, Fv: Fv_D, FaM: Fa_M, FvM: Fv_M,
@@ -316,7 +420,31 @@ const App: React.FC = () => {
       Sad_base: Sad_base,
       Fu_base: Fu_base,
       Cd,
-      V_drift
+      V_drift,
+      verticalRa,
+      verticalTDesign,
+      verticalTBase,
+      verticalTM,
+      verticalSadV,
+      verticalSadVBase,
+      verticalSaMV,
+      verticalFuv,
+      verticalFuvBase,
+      verticalFuvM,
+      verticalRawRatioD,
+      verticalRawRatioBase,
+      verticalRawRatioM,
+      verticalRatioD,
+      verticalRatioBase,
+      verticalRatioM,
+      verticalVD,
+      verticalVStar,
+      verticalVM,
+      verticalVDesign,
+      verticalWallCoefficient,
+      verticalCombinedCoefficient,
+      verticalSpectrumFactor,
+      verticalWallFormulaLabel
     });
 
     // 10. 產生反應譜曲線資料
@@ -325,15 +453,15 @@ const App: React.FC = () => {
     const Sds_small = 0.4 * Sds_base;
     const Sd1_small = 0.4 * Sd1_base;
 
-    const SaMAtT = getSaAtT(T, Sms, Sm1);
-    const SaDesignAtT = getSaAtT(T, Sds, Sd1);
+    const SaMAtT = getSaAtTByT0(T, Sms, T0M);
+    const SaDesignAtT = getSaAtTByT0(T, Sds, T0);
     const SaSmallAtT = getSaAtT(T, Sds_small, Sd1_small);
 
     for (let t = 0; t <= maxT; t += 0.05) {
       points.push({ 
         t: Number(t.toFixed(3)),
-        sa_design: getSaAtT(t, Sds, Sd1),
-        sa_mce: getSaAtT(t, Sms, Sm1),
+        sa_design: getSaAtTByT0(t, Sds, T0),
+        sa_mce: getSaAtTByT0(t, Sms, T0M),
         sa_small: getSaAtT(t, Sds_small, Sd1_small)
       });
     }
@@ -353,7 +481,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     calculate();
-  }, [selectedDistrict, selectedCity, usageFactor, alphaY, rValue, height, dynamicPeriod, siteClass, structureType, isManualInput, manualSsD, manualS1D, manualSsM, manualS1M, manualFault, manualFaultDistance, isTaipeiBasin, baseSsD, baseS1D]);
+  }, [selectedDistrict, selectedCity, usageFactor, alphaY, rValue, height, dynamicPeriod, verticalWeightRatio, siteClass, structureType, isManualInput, manualSsD, manualS1D, manualSsM, manualS1M, manualFault, manualFaultDistance, isTaipeiBasin, taipeiBasinZone, baseSsD, baseS1D]);
 
 
   return (
@@ -437,6 +565,41 @@ const App: React.FC = () => {
                       </div>
                     </div>
                   </div>
+
+                  {isTaipeiBasin && (
+                    <div className="mb-4 bg-[#f5f5f7] p-4 rounded-xl border border-gray-100 space-y-3">
+                      <div>
+                        <label className="block text-sm font-bold text-gray-500 mb-2 uppercase tracking-widest">臺北盆地微分區</label>
+                        <select
+                          value={taipeiBasinZone}
+                          onChange={(e) => setTaipeiBasinZone(e.target.value as TaipeiBasinZone)}
+                          className="w-full rounded-xl bg-white text-[#1d1d1f] border-none focus:ring-2 focus:ring-[#0066cc] text-sm p-2 font-medium transition-all"
+                        >
+                          {Object.entries(TAIPEI_BASIN_ZONES).map(([zone, data]) => (
+                            <option key={zone} value={zone}>
+                              {data.label} - Sds {data.sds.toFixed(1)} / Sms {data.sms.toFixed(1)} / T0 {data.t0.toFixed(2)}s
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm">
+                        {Object.entries(TAIPEI_BASIN_ZONES).map(([zone, data]) => (
+                          <div key={zone} className={`rounded-lg border p-2 ${zone === taipeiBasinZone ? 'border-[#0066cc] bg-white' : 'border-gray-200 bg-white/60'}`}>
+                            <div className="font-bold text-[#1d1d1f]">{data.label}</div>
+                            <div className="font-mono text-gray-500">S<sub>DS</sub> {data.sds.toFixed(1)}</div>
+                            <div className="font-mono text-gray-500">S<sub>MS</sub> {data.sms.toFixed(1)}</div>
+                            <div className="font-mono text-gray-500">T<sub>0</sub> {data.t0.toFixed(2)}s</div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="rounded-lg bg-white p-3 text-sm leading-6 text-gray-600">
+                        <div className="font-bold text-[#1d1d1f]">計算依據</div>
+                        <div>表 2-6(c)：目前採用 {selectedBasinZoneInfo.label}，S<sub>DS</sub> = {selectedBasinZoneInfo.sds.toFixed(1)}、S<sub>MS</sub> = {selectedBasinZoneInfo.sms.toFixed(1)}、T<sub>0</sub><sup>D</sup> = T<sub>0</sub><sup>M</sup> = {selectedBasinZoneInfo.t0.toFixed(2)} 秒。</div>
+                        <div>表 2-7(a)/(b)：Sa = S(0.4 + 3T/T<sub>0</sub>)、S、S T<sub>0</sub>/T、0.4S 分段計算。</div>
+                        <div className="mt-1 text-[#0066cc] font-semibold">{taipeiBasinHint?.note || '表 2-6(a)：此行政區需依工址里別或圖 2-1 判定微分區，請手動選擇。'}</div>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
@@ -643,12 +806,39 @@ const App: React.FC = () => {
                   <input type="number" step="0.1" value={rValue} onChange={(e) => setRValue(Number(e.target.value))}
                     className="w-full rounded-xl bg-[#f5f5f7] text-[#1d1d1f] border-none focus:ring-2 focus:ring-[#0066cc] text-sm p-3 font-medium transition-all" />
                 </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-400 uppercase tracking-widest mb-2">垂直地震分析 Wh/Wv</label>
+                  <input type="number" step="0.1" min="0" value={verticalWeightRatio} onChange={(e) => setVerticalWeightRatio(Number(e.target.value))}
+                    className="w-full rounded-xl bg-[#f5f5f7] text-[#1d1d1f] border-none focus:ring-2 focus:ring-[#0066cc] text-sm p-3 font-medium transition-all" />
+                </div>
               </div>
             </section>
           </div>
 
           {/* Right Column: Results & Charts */}
           <div className="lg:col-span-8 space-y-6">
+            {result && (
+              <div className="bg-white rounded-2xl border border-gray-100 p-1 flex gap-1">
+                <button
+                  type="button"
+                  onClick={() => setActiveResultTab('horizontal')}
+                  className={`flex-1 rounded-xl px-4 py-3 text-sm font-bold transition-all ${activeResultTab === 'horizontal' ? 'bg-[#0066cc] text-white shadow-sm' : 'text-gray-500 hover:bg-[#f5f5f7]'}`}
+                >
+                  水平地震力
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveResultTab('vertical')}
+                  className={`flex-1 rounded-xl px-4 py-3 text-sm font-bold transition-all ${activeResultTab === 'vertical' ? 'bg-[#0066cc] text-white shadow-sm' : 'text-gray-500 hover:bg-[#f5f5f7]'}`}
+                >
+                  垂直地震力
+                </button>
+              </div>
+            )}
+
+            {activeResultTab === 'horizontal' && (
+              <>
             {result && (
               <div className="space-y-6">
                 {/* Three Components Grid */}
@@ -658,7 +848,7 @@ const App: React.FC = () => {
                     <div className={`text-sm font-bold tracking-tight mb-4 ${result.V_Design === result.V_D ? 'text-[#0066cc]' : 'text-[#1d1d1f]'}`}>{result.V_D.toFixed(3)}</div>
                     <div className="text-sm text-gray-400 font-medium">避免中小地震產生降服</div>
                   </div>
-                  
+
                   <div className={`p-8 rounded-3xl border transition-all ${result.V_Design === result.V_Star && result.V_Design !== result.V_D ? 'bg-[#f5f5f7] border-gray-200' : 'bg-white border-gray-100'}`}>
                     <div className="text-gray-400 text-sm font-bold uppercase tracking-widest mb-4">中小地震</div>
                     <div className={`text-sm font-bold tracking-tight mb-4 ${result.V_Design === result.V_Star && result.V_Design !== result.V_D ? 'text-[#0066cc]' : 'text-[#1d1d1f]'}`}>{result.V_Star.toFixed(3)}</div>
@@ -812,13 +1002,142 @@ const App: React.FC = () => {
                 </div>
               </div>
             )}
+              </>
+            )}
+
+            {result && activeResultTab === 'vertical' && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className={`p-8 rounded-3xl border transition-all ${result.verticalVDesign === result.verticalVD ? 'bg-[#f5f5f7] border-gray-200' : 'bg-white border-gray-100'}`}>
+                    <div className="text-gray-400 text-sm font-bold uppercase tracking-widest mb-4">設計地震</div>
+                    <div className={`text-sm font-bold tracking-tight mb-4 ${result.verticalVDesign === result.verticalVD ? 'text-[#0066cc]' : 'text-[#1d1d1f]'}`}>{result.verticalVD.toFixed(3)}</div>
+                    <div className="text-sm text-gray-400 font-medium">垂直構件 V<sub>D,V</sub>/W</div>
+                  </div>
+
+                  <div className={`p-8 rounded-3xl border transition-all ${result.verticalVDesign === result.verticalVStar && result.verticalVDesign !== result.verticalVD ? 'bg-[#f5f5f7] border-gray-200' : 'bg-white border-gray-100'}`}>
+                    <div className="text-gray-400 text-sm font-bold uppercase tracking-widest mb-4">中小地震</div>
+                    <div className={`text-sm font-bold tracking-tight mb-4 ${result.verticalVDesign === result.verticalVStar && result.verticalVDesign !== result.verticalVD ? 'text-[#0066cc]' : 'text-[#1d1d1f]'}`}>{result.verticalVStar.toFixed(3)}</div>
+                    <div className="text-sm text-gray-400 font-medium">垂直構件 V*<sub>V</sub>/W</div>
+                  </div>
+
+                  <div className={`p-8 rounded-3xl border transition-all ${result.verticalVDesign === result.verticalVM && result.verticalVDesign !== result.verticalVD && result.verticalVDesign !== result.verticalVStar ? 'bg-[#f5f5f7] border-gray-200' : 'bg-white border-gray-100'}`}>
+                    <div className="text-gray-400 text-sm font-bold uppercase tracking-widest mb-4">最大地震</div>
+                    <div className={`text-sm font-bold tracking-tight mb-4 ${result.verticalVDesign === result.verticalVM && result.verticalVDesign !== result.verticalVD && result.verticalVDesign !== result.verticalVStar ? 'text-[#0066cc]' : 'text-[#1d1d1f]'}`}>{result.verticalVM.toFixed(3)}</div>
+                    <div className="text-sm text-gray-400 font-medium">垂直構件 V<sub>M,V</sub>/W</div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-10">
+                  <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6 mb-8">
+                    <div>
+                      <h3 className="font-semibold text-[#1d1d1f] text-[16px] tracking-tight">垂直地震力計算資訊</h3>
+                      <p className="mt-2 text-sm text-gray-500 leading-6">依規範 2.18：一般區域與臺北盆地 S<sub>aD,V</sub> = 1/2 S<sub>aD</sub>；近斷層工址 S<sub>aD,V</sub> = 2/3 S<sub>aD</sub>。梁、樓版等垂直振動構件採 C2-10 與 C2-11 修正。</p>
+                    </div>
+                    <div className="rounded-2xl bg-[#f5f5f7] px-5 py-4 min-w-[180px]">
+                      <div className="text-sm text-gray-400 font-bold uppercase tracking-widest">控制值</div>
+                      <div className="mt-2 text-3xl font-bold text-[#1d1d1f]">{result.verticalVDesign.toFixed(3)}</div>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm border-collapse">
+                      <thead>
+                        <tr className="border-b border-gray-200">
+                          <th className="text-left pb-4 text-gray-400 font-bold uppercase tracking-widest text-sm">參數</th>
+                          <th className="text-center pb-4 text-[#0066cc] font-bold uppercase tracking-widest text-sm">設計地震</th>
+                          <th className="text-center pb-4 text-[#34c759] font-bold uppercase tracking-widest text-sm">中小地震</th>
+                          <th className="text-center pb-4 text-[#ff3b30] font-bold uppercase tracking-widest text-sm">最大地震</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        <tr>
+                          <td className="py-4 font-medium text-gray-500">T<sub>design</sub></td>
+                          <td className="py-4 text-center font-bold">{result.verticalTDesign.toFixed(3)} s</td>
+                          <td className="py-4 text-center font-bold">{result.verticalTBase.toFixed(3)} s</td>
+                          <td className="py-4 text-center font-bold">{result.verticalTM.toFixed(3)} s</td>
+                        </tr>
+                        <tr>
+                          <td className="py-4 font-medium text-gray-500">S<sub>a,V</sub></td>
+                          <td className="py-4 text-center font-bold">{result.verticalSadV.toFixed(3)}</td>
+                          <td className="py-4 text-center font-bold">{result.verticalSadVBase.toFixed(3)}</td>
+                          <td className="py-4 text-center font-bold">{result.verticalSaMV.toFixed(3)}</td>
+                        </tr>
+                        <tr>
+                          <td className="py-4 font-medium text-gray-500">F<sub>uv</sub></td>
+                          <td className="py-4 text-center font-bold">{result.verticalFuv.toFixed(3)}</td>
+                          <td className="py-4 text-center font-bold">{result.verticalFuvBase.toFixed(3)}</td>
+                          <td className="py-4 text-center font-bold">{result.verticalFuvM.toFixed(3)}</td>
+                        </tr>
+                        <tr>
+                          <td className="py-4 font-medium text-gray-500">S<sub>a,V</sub> / F<sub>uv</sub></td>
+                          <td className="py-4 text-center font-bold">{result.verticalRawRatioD.toFixed(3)}</td>
+                          <td className="py-4 text-center font-bold">{result.verticalRawRatioBase.toFixed(3)}</td>
+                          <td className="py-4 text-center font-bold">{result.verticalRawRatioM.toFixed(3)}</td>
+                        </tr>
+                        <tr>
+                          <td className="py-4 font-medium text-gray-500">(S<sub>a,V</sub> / F<sub>uv</sub>)<sub>m</sub></td>
+                          <td className="py-4 text-center font-bold">{result.verticalRatioD.toFixed(3)}</td>
+                          <td className="py-4 text-center font-bold">{result.verticalRatioBase.toFixed(3)}</td>
+                          <td className="py-4 text-center font-bold">{result.verticalRatioM.toFixed(3)}</td>
+                        </tr>
+                        <tr className="bg-[#f5f5f7]/50 font-bold">
+                          <td className="py-4 text-[#1d1d1f]">垂直地震力係數 V<sub>Z1</sub>/W</td>
+                          <td className="py-4 text-center text-[#0066cc]">{result.verticalVD.toFixed(3)}</td>
+                          <td className="py-4 text-center text-[#34c759]">{result.verticalVStar.toFixed(3)}</td>
+                          <td className="py-4 text-center text-[#ff3b30]">{result.verticalVM.toFixed(3)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="bg-[#f5f5f7] rounded-3xl border border-gray-200 p-10">
+                  <h3 className="font-semibold text-[#1d1d1f] mb-8 flex items-center gap-3 text-xl tracking-tight">
+                    <div className="w-1.5 h-6 bg-[#0066cc] rounded-full"></div>
+                    垂直構件控制與分析採用值
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="rounded-2xl bg-white p-5 border border-gray-100">
+                      <div className="text-sm font-bold text-gray-400 uppercase tracking-widest">水平梁版構件</div>
+                      <div className="mt-3 text-3xl font-bold text-[#1d1d1f]">{result.verticalVDesign.toFixed(3)}</div>
+                      <div className="mt-2 text-sm text-gray-500">V<sub>Z1</sub> = Max[V<sub>D,V</sub>, V*<sub>V</sub>, V<sub>M,V</sub>]</div>
+                    </div>
+                    <div className="rounded-2xl bg-white p-5 border border-gray-100">
+                      <div className="text-sm font-bold text-gray-400 uppercase tracking-widest">垂直牆構件</div>
+                      <div className="mt-3 text-3xl font-bold text-[#1d1d1f]">{result.verticalWallCoefficient.toFixed(3)}</div>
+                      <div className="mt-2 text-sm text-gray-500">V<sub>Z2</sub> = {result.verticalWallFormulaLabel}</div>
+                    </div>
+                    <div className="rounded-2xl bg-white p-5 border border-gray-100">
+                      <div className="text-sm font-bold text-gray-400 uppercase tracking-widest">分析採用 V<sub>Z</sub></div>
+                      <div className="mt-3 text-3xl font-bold text-[#1d1d1f]">{result.verticalCombinedCoefficient.toFixed(3)}</div>
+                      <div className="mt-2 text-sm text-gray-500">({result.V_Design.toFixed(3)} * {verticalWeightRatio.toFixed(2)} + {result.verticalVDesign.toFixed(3)}) / {(verticalWeightRatio + 1).toFixed(2)}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </main>
 
       {showReport && (
         <CalculationReport 
-          inputs={{ usageFactor, alphaY, rValue, height, dynamicPeriod, siteClass, structureType, isManualInput, isTaipeiBasin } as any}
+          inputs={{
+            usageFactor,
+            alphaY,
+            rValue,
+            height,
+            dynamicPeriod,
+            siteClass,
+            structureType,
+            isManualInput,
+            isTaipeiBasin,
+            verticalWeightRatio,
+            taipeiBasinZoneLabel: isTaipeiBasin ? selectedBasinZoneInfo.label : undefined,
+            taipeiBasinZoneDetails: isTaipeiBasin
+              ? `SDS=${selectedBasinZoneInfo.sds.toFixed(1)}, SMS=${selectedBasinZoneInfo.sms.toFixed(1)}, T0D/T0M=${selectedBasinZoneInfo.t0.toFixed(2)}s`
+              : undefined
+          }}
           zone={currentZone}
           result={result}
           onClose={() => setShowReport(false)}

@@ -60,6 +60,30 @@ export interface CalculationResult {
   ratioM: number;
   Cd: number; // Building distance adjustment factor
   V_drift: number; // Seismic force for drift check (V_drift/W)
+  verticalRa: number;
+  verticalTDesign: number;
+  verticalTBase: number;
+  verticalTM: number;
+  verticalSadV: number;
+  verticalSadVBase: number;
+  verticalSaMV: number;
+  verticalFuv: number;
+  verticalFuvBase: number;
+  verticalFuvM: number;
+  verticalRawRatioD: number;
+  verticalRawRatioBase: number;
+  verticalRawRatioM: number;
+  verticalRatioD: number;
+  verticalRatioBase: number;
+  verticalRatioM: number;
+  verticalVD: number;
+  verticalVStar: number;
+  verticalVM: number;
+  verticalVDesign: number;
+  verticalWallCoefficient: number;
+  verticalCombinedCoefficient: number;
+  verticalSpectrumFactor: number;
+  verticalWallFormulaLabel: string;
 }
 
 export interface ChartPoint {

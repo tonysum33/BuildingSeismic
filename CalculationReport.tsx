@@ -13,6 +13,9 @@ interface CalculationReportProps {
     structureType: StructureType;
     isManualInput?: boolean;
     isTaipeiBasin?: boolean;
+    taipeiBasinZoneLabel?: string;
+    taipeiBasinZoneDetails?: string;
+    verticalWeightRatio?: number;
   };
   zone: SeismicZoneData | undefined;
   result: CalculationResult | null;
@@ -72,6 +75,12 @@ export const CalculationReport: React.FC<CalculationReportProps> = ({ inputs, zo
               <div className="flex justify-between border-b border-gray-50 pb-2"><span className="text-gray-400 font-medium">地盤種類</span> <span className="font-semibold">{inputs.siteClass === '1' ? '第一類 (堅硬)' : inputs.siteClass === '2' ? '第二類 (普通)' : '第三類 (軟弱)'}</span></div>
               <div className="flex justify-between border-b border-gray-50 pb-2"><span className="text-gray-400 font-medium">用途係數 (I)</span> <span className="font-semibold">{inputs.usageFactor.toFixed(3)}</span></div>
               <div className="flex justify-between border-b border-gray-50 pb-2"><span className="text-gray-400 font-medium">韌性容量 (R)</span> <span className="font-semibold">{inputs.rValue.toFixed(3)}</span></div>
+              {inputs.isTaipeiBasin && inputs.taipeiBasinZoneLabel && (
+                <div className="flex justify-between border-b border-gray-50 pb-2"><span className="text-gray-400 font-medium">臺北盆地微分區</span> <span className="font-semibold">{inputs.taipeiBasinZoneLabel}</span></div>
+              )}
+              {inputs.isTaipeiBasin && inputs.taipeiBasinZoneDetails && (
+                <div className="flex justify-between border-b border-gray-50 pb-2"><span className="text-gray-400 font-medium">盆地參數</span> <span className="font-semibold">{inputs.taipeiBasinZoneDetails}</span></div>
+              )}
               <div className="flex justify-between border-b border-gray-50 pb-2"><span className="text-gray-400 font-medium">容許韌性 (Ra)</span> <span className="font-semibold">{result.Ra.toFixed(3)}</span></div>
               <div className="flex justify-between border-b border-gray-50 pb-2"><span className="text-gray-400 font-medium">起始降服放大係數 (αy)</span> <span className="font-semibold">{inputs.alphaY.toFixed(3)}</span></div>
             </div>
@@ -220,6 +229,32 @@ export const CalculationReport: React.FC<CalculationReportProps> = ({ inputs, zo
                 </div>
                 <p className="mt-2 text-[11px] text-gray-400 italic">公式：(1.0 × F<sub>u</sub> / 4.2) × (S<sub>aD</sub>/F<sub>u</sub>)<sub>m</sub></p>
               </div>
+            </div>
+          </section>
+
+          {/* Section 9: Vertical Earthquake */}
+          <section className="bg-[#f5f5f7]/50 p-8 rounded-3xl border border-gray-100">
+            <h3 className="text-lg font-semibold text-[#1d1d1f] mb-6 tracking-tight">9. 垂直地震力 (Vertical Earthquake)</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mb-6">
+              <div className="p-4 bg-white rounded-2xl border border-gray-50">
+                <p className="text-gray-400 text-[10px] font-bold uppercase tracking-widest mb-2">設計地震</p>
+                <div className="text-2xl font-bold text-[#0066cc]">{result.verticalVD.toFixed(3)}</div>
+              </div>
+              <div className="p-4 bg-white rounded-2xl border border-gray-50">
+                <p className="text-gray-400 text-[10px] font-bold uppercase tracking-widest mb-2">中小地震</p>
+                <div className="text-2xl font-bold text-[#34c759]">{result.verticalVStar.toFixed(3)}</div>
+              </div>
+              <div className="p-4 bg-white rounded-2xl border border-gray-50">
+                <p className="text-gray-400 text-[10px] font-bold uppercase tracking-widest mb-2">最大地震</p>
+                <div className="text-2xl font-bold text-[#ff3b30]">{result.verticalVM.toFixed(3)}</div>
+              </div>
+            </div>
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between border-b border-gray-100 pb-2"><span className="text-gray-500">垂直向設計譜係數倍率</span><span className="font-semibold">{result.verticalSpectrumFactor.toFixed(3)}</span></div>
+              <div className="flex justify-between border-b border-gray-100 pb-2"><span className="text-gray-500">垂直韌性容量 R / Ra</span><span className="font-semibold">3.000 / {result.verticalRa.toFixed(3)}</span></div>
+              <div className="flex justify-between border-b border-gray-100 pb-2"><span className="text-gray-500">V<sub>Z1</sub> = Max[V<sub>D,V</sub>, V*<sub>V</sub>, V<sub>M,V</sub>]</span><span className="font-semibold">{result.verticalVDesign.toFixed(3)} W</span></div>
+              <div className="flex justify-between border-b border-gray-100 pb-2"><span className="text-gray-500">V<sub>Z2</sub> ({result.verticalWallFormulaLabel})</span><span className="font-semibold">{result.verticalWallCoefficient.toFixed(3)} W2</span></div>
+              <div className="flex justify-between border-b border-gray-100 pb-2"><span className="text-gray-500">分析採用 V<sub>Z</sub>，Wh/Wv = {(inputs.verticalWeightRatio ?? 2).toFixed(2)}</span><span className="font-semibold">{result.verticalCombinedCoefficient.toFixed(3)} W</span></div>
             </div>
           </section>
 
